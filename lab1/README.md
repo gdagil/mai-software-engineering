@@ -42,17 +42,17 @@ https://about.coinkeeper.me/
 ## Диаграммы
 
 ### Контекстная диаграмма (System Context)
-![SystemContext](lab1/docs/images/SystemContext.png)
+![SystemContext](docs/images/SystemContext.png)
 
-2. Диаграмма контейнеров (Container)
-![Container](lab1/docs/images/Container.png)
+### Диаграмма контейнеров (Container)
+![Container](docs/images/Container.png)
 
-3. Диаграмма создания бюджетного плана (Dynamic View - CreateBudgetPlan)
+### Диаграмма создания бюджетного плана (Dynamic View - CreateBudgetPlan)
 
-![CreateBudgetPlan](lab1/docs/images/CreateBudgetPlan.png)
+![CreateBudgetPlan](docs/images/CreateBudgetPlan.png)
 
-4. Диаграмма добавления транзакции (Dynamic View - AddTransaction)
-![AddTransaction](lab1/docs/images/AddTransaction.png)
+### Диаграмма добавления транзакции (Dynamic View - AddTransaction)
+![AddTransaction](docs/images/AddTransaction.png)
 
-5. Диаграмма просмотра аналитики (Dynamic View - ViewAnalytics)
-![ViewAnalytics](lab1/docs/images/ViewAnalytics.png)
+### Диаграмма просмотра аналитики (Dynamic View - ViewAnalytics)
+![ViewAnalytics](docs/images/ViewAnalytics.png)
