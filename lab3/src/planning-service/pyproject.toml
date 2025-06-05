@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "planning_service"
+version = "0.1.0"
+description = "Planning Service for Budget Planning System"
+authors = ["Gudynin Danila <ddgudinin@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.104.1"
+uvicorn = "^0.24.0"
+pydantic = "^2.5.0"
+pydantic-settings = "^2.1.0"
+databases = {extras = ["asyncpg"], version = "^0.8.0"}
+sqlalchemy = "^1.4.45"
+asyncpg = "^0.29.0"
+psycopg2-binary = "^2.9.7"
+alembic = "^1.13.0"
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

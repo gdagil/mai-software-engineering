@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "planning_service"
+version = "0.1.0"
+description = "Planning Service for Budget Planning System"
+authors = ["Gudynin Danila <ddgudinin@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.104.1"
+uvicorn = "^0.24.0"
+pydantic = "^2.5.0"
+pydantic-settings = "^2.1.0"
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

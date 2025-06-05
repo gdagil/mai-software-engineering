@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: budget_db
+      POSTGRES_USER: budget_user
+      POSTGRES_PASSWORD: budget_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - budget-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U budget_user -d budget_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api-gateway:
+    build: 
+      context: ./src/api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - SECRET_KEY=your-secret-key-here
+      - PLANNING_SERVICE_URL=http://planning-service:8080
+    depends_on:
+      - planning-service
+    networks:
+      - budget-network
+
+  planning-service:
+    build: 
+      context: ./src/planning-service
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://budget_user:budget_password@postgres:5432/budget_db
+      - USE_IN_MEMORY=false
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - budget-network
+
+networks:
+  budget-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

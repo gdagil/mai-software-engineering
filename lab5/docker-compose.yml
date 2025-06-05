@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: budget_db
+      POSTGRES_USER: budget_user
+      POSTGRES_PASSWORD: budget_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - budget-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U budget_user -d budget_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:4.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./init-mongo/:/docker-entrypoint-initdb.d/
+    networks:
+      - budget-network
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - budget-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    command: redis-server --appendonly yes
+
+  planning-service:
+    build: ./src/planning-service
+    ports:
+      - "8081:8080"
+    environment:
+      - DATABASE_URL=postgresql://budget_user:budget_password@postgres:5432/budget_db
+      - MONGODB_URL=mongodb://mongodb:27017/transactions_db
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - budget-network
+
+  api-gateway:
+    build: ./src/api-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - PLANNING_SERVICE_URL=http://planning-service:8080
+    depends_on:
+      - planning-service
+    networks:
+      - budget-network
+
+volumes:
+  postgres_data:
+  mongodb_data:
+  redis_data:
+
+networks:
+  budget-network:
+    driver: bridge

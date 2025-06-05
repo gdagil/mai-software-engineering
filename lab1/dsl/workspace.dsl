@@ -25,33 +25,18 @@ workspace {
 
             // Backend containers
             apiGateway = container "API Gateway" {
-                description "API шлюз для маршрутизации запросов"
-                technology "Node.js, Express"
-            }
-
-            budgetService = container "Budget Service" {
-                description "Сервис управления бюджетом и транзакциями"
-                technology "Java Spring Boot"
-            }
-
-            planningService = container "Planning Service" {
-                description "Сервис финансового планирования"
-                technology "Java Spring Boot"
-            }
-
-            analyticsService = container "Analytics Service" {
-                description "Сервис аналитики и отчетов"
+                description "API шлюз для маршрутизации запросов и JWT аутентификации"
                 technology "Python FastAPI"
             }
 
-            notificationService = container "Notification Service" {
-                description "Сервис уведомлений"
-                technology "Node.js"
+            planningService = container "Planning Service" {
+                description "Сервис финансового планирования с кешированием"
+                technology "Python FastAPI"
             }
 
             // Databases
             userDB = container "User Database" {
-                description "База данных пользователей"
+                description "База данных пользователей и планов"
                 technology "PostgreSQL"
             }
 
@@ -60,14 +45,9 @@ workspace {
                 technology "MongoDB"
             }
 
-            planningDB = container "Planning Database" {
-                description "База данных финансовых планов"
-                technology "PostgreSQL"
-            }
-
-            analyticsDB = container "Analytics Database" {
-                description "База данных аналитики"
-                technology "ClickHouse"
+            redisCache = container "Redis Cache" {
+                description "Кеш для оптимизации производительности"
+                technology "Redis"
             }
 
             // Relationships
@@ -77,24 +57,11 @@ workspace {
             webApp -> apiGateway "Отправляет запросы" "REST/HTTPS"
             mobileApp -> apiGateway "Отправляет запросы" "REST/HTTPS"
 
-            apiGateway -> budgetService "Маршрутизирует запросы" "REST/HTTPS"
-            apiGateway -> planningService "Маршрутизирует запросы" "REST/HTTPS"
-            apiGateway -> analyticsService "Маршрутизирует запросы" "REST/HTTPS"
+            apiGateway -> planningService "Проксирует запросы с JWT валидацией" "REST/HTTPS"
 
-            budgetService -> transactionDB "Читает/записывает транзакции" "MongoDB Driver"
-            budgetService -> userDB "Читает данные пользователей" "JDBC"
-            budgetService -> analyticsService "Отправляет данные для анализа" "Apache Kafka"
-
-            planningService -> planningDB "Управляет планами" "JDBC"
-            planningService -> userDB "Читает данные пользователей" "JDBC"
-
-            analyticsService -> analyticsDB "Анализирует данные" "HTTP/TCP"
-            analyticsService -> transactionDB "Читает транзакции" "MongoDB Driver"
-
-            notificationService -> userDB "Читает контакты" "JDBC"
-            budgetService -> notificationService "Отправляет события" "Apache Kafka"
-            planningService -> notificationService "Отправляет события" "Apache Kafka"
-            notificationService -> user "Отправляет уведомления" "Push/Email/SMS"
+            planningService -> userDB "Управляет пользователями и планами" "PostgreSQL Driver"
+            planningService -> transactionDB "Управляет транзакциями" "MongoDB Driver"
+            planningService -> redisCache "Кеширует данные" "Redis Driver"
         }
     }
 
@@ -110,31 +77,33 @@ workspace {
         }
 
         // Динамические представления для ключевых сценариев
-        dynamic coinkeeper "CreateBudgetPlan" "Создание бюджетного плана" {
+        dynamic coinkeeper "CreateBudgetPlan" "Создание бюджетного плана с кешированием" {
             user -> coinkeeper.webApp "Создает новый бюджетный план"
-            coinkeeper.webApp -> coinkeeper.apiGateway "POST /api/v1/plans"
-            coinkeeper.apiGateway -> coinkeeper.planningService "Создает план"
-            coinkeeper.planningService -> coinkeeper.planningDB "Сохраняет план"
-            coinkeeper.planningService -> coinkeeper.notificationService "Отправляет уведомление"
-            coinkeeper.notificationService -> user "Отправляет уведомления" "Push/Email/SMS"
+            coinkeeper.webApp -> coinkeeper.apiGateway "POST /api/plans с JWT токеном"
+            coinkeeper.apiGateway -> coinkeeper.planningService "Проксирует запрос с X-User заголовком"
+            coinkeeper.planningService -> coinkeeper.userDB "Сохраняет план в PostgreSQL"
+            coinkeeper.planningService -> coinkeeper.redisCache "Инвалидирует кеш пользователя"
+            coinkeeper.planningService -> coinkeeper.redisCache "Кеширует новый план (Write-Behind)"
+            coinkeeper.planningService -> coinkeeper.apiGateway "Возвращает созданный план"
+            coinkeeper.apiGateway -> coinkeeper.webApp "Возвращает ответ"
             autolayout lr
         }
 
         dynamic coinkeeper "AddTransaction" "Добавление транзакции" {
             user -> coinkeeper.mobileApp "Добавляет транзакцию"
-            coinkeeper.mobileApp -> coinkeeper.apiGateway "POST /api/v1/transactions"
-            coinkeeper.apiGateway -> coinkeeper.budgetService "Создает транзакцию"
-            coinkeeper.budgetService -> coinkeeper.transactionDB "Сохраняет транзакцию"
-            coinkeeper.budgetService -> coinkeeper.analyticsService "Отправляет данные для анализа"
-            coinkeeper.analyticsService -> coinkeeper.analyticsDB "Обновляет аналитику"
+            coinkeeper.mobileApp -> coinkeeper.apiGateway "POST /api/transactions-mongo"
+            coinkeeper.apiGateway -> coinkeeper.planningService "Маршрутизирует запрос"
+            coinkeeper.planningService -> coinkeeper.transactionDB "Сохраняет транзакцию в MongoDB"
             autolayout lr
         }
 
-        dynamic coinkeeper "ViewAnalytics" "Просмотр аналитики" {
+        dynamic coinkeeper "ViewAnalytics" "Просмотр аналитики с кешированием" {
             user -> coinkeeper.webApp "Запрашивает аналитику"
-            coinkeeper.webApp -> coinkeeper.apiGateway "GET /api/v1/analytics"
-            coinkeeper.apiGateway -> coinkeeper.analyticsService "Запрашивает отчет"
-            coinkeeper.analyticsService -> coinkeeper.analyticsDB "Получает данные"
+            coinkeeper.webApp -> coinkeeper.apiGateway "GET /api/transactions-mongo/plan/{id}/analytics"
+            coinkeeper.apiGateway -> coinkeeper.planningService "Запрашивает отчет"
+            coinkeeper.planningService -> coinkeeper.redisCache "Проверяет кеш (Read-Through)"
+            coinkeeper.planningService -> coinkeeper.transactionDB "Получает данные из MongoDB"
+            coinkeeper.planningService -> coinkeeper.redisCache "Кеширует результат"
             autolayout lr
         }
 
